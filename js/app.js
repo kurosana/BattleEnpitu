@@ -199,6 +199,17 @@
       showScreen("screen-count");
     });
     $("count-heading").textContent = CONFIG.playerCountHeading;
+    $("names-heading").textContent = CONFIG.namesHeading || "名前を入力";
+    $("btn-back-count").textContent = CONFIG.backButtonLabel || "戻る";
+    $("btn-back-names").textContent = CONFIG.backButtonLabel || "戻る";
+
+    $("btn-back-count").addEventListener("click", () => {
+      showScreen("screen-start");
+    });
+    $("btn-back-names").addEventListener("click", () => {
+      showScreen("screen-count");
+    });
+
     document.querySelectorAll(".btn-count").forEach((btn) => {
       btn.addEventListener("click", () => {
         playerCount = parseInt(btn.getAttribute("data-count"), 10);

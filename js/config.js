@@ -18,6 +18,12 @@ const CONFIG = {
   /** 人数選択画面の見出し */
   playerCountHeading: "何人で遊びますか？",
 
+  /** 名前入力画面の見出し */
+  namesHeading: "名前を入力",
+
+  /** セットアップ画面の戻るボタン文言 */
+  backButtonLabel: "戻る",
+
   /** 名前入力画面のボタン文言 */
   gameStartButtonLabel: "ゲームスタート！",
 

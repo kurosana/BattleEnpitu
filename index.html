@@ -23,7 +23,10 @@
 
   <!-- 人数選択画面 -->
   <section id="screen-count" class="screen">
-    <h1 class="screen-heading" id="count-heading">何人で遊びますか？</h1>
+    <header class="setup-header">
+      <button type="button" class="btn-back-setup" id="btn-back-count">戻る</button>
+      <h1 class="screen-heading" id="count-heading">何人で遊びますか？</h1>
+    </header>
     <div class="count-buttons" id="count-buttons">
       <button type="button" class="btn-primary btn-count" data-count="2">2人</button>
       <button type="button" class="btn-primary btn-count" data-count="3">3人</button>
@@ -34,6 +37,10 @@
 
   <!-- 名前入力画面 -->
   <section id="screen-names" class="screen">
+    <header class="setup-header">
+      <button type="button" class="btn-back-setup" id="btn-back-names">戻る</button>
+      <h1 class="screen-heading" id="names-heading">名前を入力</h1>
+    </header>
     <div class="names-form" id="names-form"></div>
     <button type="button" class="btn-primary btn-game-start" id="btn-game-start">ゲームスタート！</button>
   </section>
