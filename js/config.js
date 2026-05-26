@@ -43,7 +43,7 @@ const CONFIG = {
   hpStep: 10,
 
   /** 未設定ポケモンの表示名 */
-  unassignedPokemonName: "？？？？？",
+  unassignedPokemonName: "画像をタップ",
 
   /** 消しゴムボタンの表示 */
   eraserButtonLabel: "消",

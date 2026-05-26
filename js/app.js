@@ -419,7 +419,9 @@
       '<div class="col-hp">' +
       '<div class="hp-label">残りHP</div>' +
       '<div class="hp-value">' +
-      active.hp +
+      '<select class="hp-value-select" data-action="hp-select" aria-label="残りHP">' +
+      buildHpSelectOptions(active.hp) +
+      "</select>" +
       "</div>" +
       '<div class="hp-buttons">' +
       '<button type="button" class="btn-hp"' +
@@ -431,6 +433,27 @@
       "</div>" +
       "</div>"
     );
+  }
+
+  function normalizeHp(hp) {
+    const step = CONFIG.hpStep;
+    const min = CONFIG.hpMin;
+    const max = CONFIG.hpMax;
+    const v = Math.round(Number(hp) / step) * step;
+    return Math.max(min, Math.min(max, v));
+  }
+
+  function buildHpSelectOptions(currentHp) {
+    const min = CONFIG.hpMin;
+    const max = CONFIG.hpMax;
+    const step = CONFIG.hpStep;
+    const normalized = normalizeHp(currentHp);
+    let html = "";
+    for (let v = max; v >= min; v -= step) {
+      const sel = v === normalized ? " selected" : "";
+      html += '<option value="' + v + '"' + sel + ">" + v + "</option>";
+    }
+    return html;
   }
 
   function buildMoveSelectOptions(selected) {
@@ -514,10 +537,23 @@
       });
     }
 
+    const hpSelect = row.querySelector('[data-action="hp-select"]');
+    if (hpSelect) {
+      hpSelect.addEventListener("change", () => {
+        const active = getActivePokemon(player);
+        const val = parseInt(hpSelect.value, 10);
+        if (!isNaN(val)) {
+          active.hp = normalizeHp(val);
+          saveState();
+          renderGameScreen();
+        }
+      });
+    }
+
     row.querySelector('[data-action="hp-up"]').addEventListener("click", () => {
       const active = getActivePokemon(player);
       if (active.hp < CONFIG.hpMax) {
-        active.hp = Math.min(CONFIG.hpMax, active.hp + CONFIG.hpStep);
+        active.hp = normalizeHp(active.hp + CONFIG.hpStep);
         saveState();
         renderGameScreen();
       }
@@ -526,7 +562,7 @@
     row.querySelector('[data-action="hp-down"]').addEventListener("click", () => {
       const active = getActivePokemon(player);
       if (active.hp > CONFIG.hpMin) {
-        active.hp = Math.max(CONFIG.hpMin, active.hp - CONFIG.hpStep);
+        active.hp = normalizeHp(active.hp - CONFIG.hpStep);
         saveState();
         renderGameScreen();
       }
