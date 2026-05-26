@@ -200,15 +200,11 @@
     });
     $("count-heading").textContent = CONFIG.playerCountHeading;
     $("names-heading").textContent = CONFIG.namesHeading || "名前を入力";
-    $("btn-back-count").textContent = CONFIG.backButtonLabel || "戻る";
-    $("btn-back-names").textContent = CONFIG.backButtonLabel || "戻る";
-
-    $("btn-back-count").addEventListener("click", () => {
-      showScreen("screen-start");
-    });
-    $("btn-back-names").addEventListener("click", () => {
-      showScreen("screen-count");
-    });
+    const backLabel = CONFIG.backButtonLabel || "戻る";
+    const btnBackCount = $("btn-back-count");
+    const btnBackNames = $("btn-back-names");
+    if (btnBackCount) btnBackCount.textContent = backLabel;
+    if (btnBackNames) btnBackNames.textContent = backLabel;
 
     document.querySelectorAll(".btn-count").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -728,7 +724,22 @@
 
   /* ---------- 起動 ---------- */
 
+  function initNavigation() {
+    document.addEventListener("click", (e) => {
+      const target = e.target;
+      if (!target || !target.id) return;
+      if (target.id === "btn-back-count") {
+        e.preventDefault();
+        showScreen("screen-start");
+      } else if (target.id === "btn-back-names") {
+        e.preventDefault();
+        showScreen("screen-count");
+      }
+    });
+  }
+
   async function boot() {
+    initNavigation();
     initStartScreen();
     initDialogs();
 

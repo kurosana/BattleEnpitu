@@ -14,35 +14,37 @@
   </section>
 
   <!-- スタート画面 -->
-  <section id="screen-start" class="screen">
-    <div class="screen-center">
-      <button type="button" class="btn-primary btn-start-large" id="btn-start">スタート</button>
+  <section id="screen-start" class="screen screen-scroll">
+    <div class="screen-scroll-body screen-start-body">
+      <div class="screen-center">
+        <button type="button" class="btn-primary btn-start-large" id="btn-start">スタート</button>
+      </div>
+      <footer class="start-credits" id="start-credits" aria-label="クレジット"></footer>
     </div>
-    <footer class="start-credits" id="start-credits" aria-label="クレジット"></footer>
   </section>
 
   <!-- 人数選択画面 -->
-  <section id="screen-count" class="screen">
-    <header class="setup-header">
-      <button type="button" class="btn-back-setup" id="btn-back-count">戻る</button>
+  <section id="screen-count" class="screen screen-scroll">
+    <button type="button" class="btn-exit btn-nav-fixed" id="btn-back-count">戻る</button>
+    <div class="screen-scroll-body">
       <h1 class="screen-heading" id="count-heading">何人で遊びますか？</h1>
-    </header>
-    <div class="count-buttons" id="count-buttons">
+      <div class="count-buttons" id="count-buttons">
       <button type="button" class="btn-primary btn-count" data-count="2">2人</button>
       <button type="button" class="btn-primary btn-count" data-count="3">3人</button>
       <button type="button" class="btn-primary btn-count" data-count="4">4人</button>
       <button type="button" class="btn-primary btn-count" data-count="5">5人</button>
+      </div>
     </div>
   </section>
 
   <!-- 名前入力画面 -->
-  <section id="screen-names" class="screen">
-    <header class="setup-header">
-      <button type="button" class="btn-back-setup" id="btn-back-names">戻る</button>
+  <section id="screen-names" class="screen screen-scroll">
+    <button type="button" class="btn-exit btn-nav-fixed" id="btn-back-names">戻る</button>
+    <div class="screen-scroll-body">
       <h1 class="screen-heading" id="names-heading">名前を入力</h1>
-    </header>
-    <div class="names-form" id="names-form"></div>
-    <button type="button" class="btn-primary btn-game-start" id="btn-game-start">ゲームスタート！</button>
+      <div class="names-form" id="names-form"></div>
+      <button type="button" class="btn-primary btn-game-start" id="btn-game-start">ゲームスタート！</button>
+    </div>
   </section>
 
   <!-- ゲーム管理画面 -->
