@@ -185,6 +185,14 @@
 
   function initStartScreen() {
     $("btn-start").textContent = CONFIG.startButtonLabel;
+
+    const creditsEl = $("start-credits");
+    if (creditsEl && CONFIG.creditLines && CONFIG.creditLines.length) {
+      creditsEl.innerHTML = CONFIG.creditLines
+        .map((line) => "<p>" + escapeHtml(line) + "</p>")
+        .join("");
+    }
+
     $("btn-start").addEventListener("click", () => {
       clearState();
       state = null;
