@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>バトエンツール</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+  <!-- ローディング -->
+  <section id="screen-loading" class="screen active">
+    <p class="loading-text">読み込み中…</p>
+  </section>
+
+  <!-- スタート画面 -->
+  <section id="screen-start" class="screen">
+    <div class="screen-center">
+      <button type="button" class="btn-primary btn-start-large" id="btn-start">スタート</button>
+    </div>
+  </section>
+
+  <!-- 人数選択画面 -->
+  <section id="screen-count" class="screen">
+    <h1 class="screen-heading" id="count-heading">何人で遊びますか？</h1>
+    <div class="count-buttons" id="count-buttons">
+      <button type="button" class="btn-primary btn-count" data-count="2">2人</button>
+      <button type="button" class="btn-primary btn-count" data-count="3">3人</button>
+      <button type="button" class="btn-primary btn-count" data-count="4">4人</button>
+      <button type="button" class="btn-primary btn-count" data-count="5">5人</button>
+    </div>
+  </section>
+
+  <!-- 名前入力画面 -->
+  <section id="screen-names" class="screen">
+    <div class="names-form" id="names-form"></div>
+    <button type="button" class="btn-primary btn-game-start" id="btn-game-start">ゲームスタート！</button>
+  </section>
+
+  <!-- ゲーム管理画面 -->
+  <section id="screen-game" class="screen">
+    <header class="game-header">
+      <h1 class="game-title" id="game-title">バトエンツール</h1>
+      <button type="button" class="btn-exit" id="btn-exit">終了</button>
+    </header>
+    <div class="game-players" id="game-players"></div>
+  </section>
+  </div>
+
+  <!-- 確認ダイアログ -->
+  <div id="dialog-confirm" class="dialog" aria-hidden="true">
+    <div class="dialog-backdrop"></div>
+    <div class="dialog-box">
+      <p class="dialog-message" id="dialog-message"></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn-dialog btn-dialog-yes" id="dialog-yes">はい</button>
+        <button type="button" class="btn-dialog btn-dialog-no" id="dialog-no">いいえ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ポケモン検索オーバーレイ -->
+  <div id="overlay-search" class="overlay overlay-search" aria-hidden="true">
+    <div class="overlay-inner">
+      <div class="search-header">
+        <input type="search" id="search-pokemon" placeholder="ポケモン名で検索" autocomplete="off">
+        <button type="button" class="btn-close-overlay" id="btn-close-search">閉じる</button>
+      </div>
+      <div class="search-results" id="search-results"></div>
+    </div>
+  </div>
+
+  <!-- ポケモン交代オーバーレイ -->
+  <div id="overlay-switch" class="overlay overlay-panel" aria-hidden="true">
+    <div class="panel-inner switch-panel">
+      <header class="panel-header">
+        <button type="button" class="btn-back-panel" id="btn-switch-back">戻る</button>
+        <h2 class="panel-title" id="switch-player-name"></h2>
+      </header>
+      <div class="switch-body" id="switch-body"></div>
+    </div>
+  </div>
+
+  <!-- 状態異常選択オーバーレイ -->
+  <div id="overlay-status" class="overlay overlay-panel" aria-hidden="true">
+    <div class="panel-inner status-panel">
+      <header class="panel-header">
+        <button type="button" class="btn-back-panel" id="btn-status-back">戻る</button>
+        <h2 class="panel-title" id="status-panel-title">状態異常を選択</h2>
+      </header>
+      <div class="status-buttons" id="status-buttons"></div>
+      <button type="button" class="btn-secondary btn-clear-status" id="btn-clear-status">解除</button>
+    </div>
+  </div>
+
+  <!-- わざ効果オーバーレイ -->
+  <div id="overlay-move-help" class="overlay overlay-panel" aria-hidden="true">
+    <div class="panel-inner move-help-panel">
+      <header class="panel-header">
+        <button type="button" class="btn-back-panel" id="btn-move-help-back">戻る</button>
+        <h2 class="panel-title" id="move-help-title"></h2>
+      </header>
+      <div class="move-help-list" id="move-help-list"></div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
