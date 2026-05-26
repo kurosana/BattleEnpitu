@@ -88,6 +88,65 @@
     document.querySelectorAll(".screen").forEach((el) => {
       el.classList.toggle("active", el.id === id);
     });
+    const backCount = $("btn-back-count");
+    const backNames = $("btn-back-names");
+    if (backCount) backCount.hidden = id !== "screen-count";
+    if (backNames) backNames.hidden = id !== "screen-names";
+  }
+
+  /** スマホ向け：タップとスクロールを区別してボタンを確実に反応させる */
+  function bindActionButton(el, handler) {
+    if (!el) return;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchMoved = false;
+    let handledByTouch = false;
+
+    el.addEventListener(
+      "touchstart",
+      (e) => {
+        touchMoved = false;
+        handledByTouch = false;
+        if (e.touches.length > 0) {
+          touchStartX = e.touches[0].clientX;
+          touchStartY = e.touches[0].clientY;
+        }
+      },
+      { passive: true }
+    );
+
+    el.addEventListener(
+      "touchmove",
+      (e) => {
+        if (e.touches.length === 0) return;
+        const dx = e.touches[0].clientX - touchStartX;
+        const dy = e.touches[0].clientY - touchStartY;
+        const threshold = CONFIG.touchThresholdPx || 15;
+        if (dx * dx + dy * dy > threshold * threshold) {
+          touchMoved = true;
+        }
+      },
+      { passive: true }
+    );
+
+    el.addEventListener(
+      "touchend",
+      (e) => {
+        if (touchMoved) return;
+        e.preventDefault();
+        handledByTouch = true;
+        handler(e);
+        window.setTimeout(() => {
+          handledByTouch = false;
+        }, 400);
+      },
+      { passive: false }
+    );
+
+    el.addEventListener("click", (e) => {
+      if (handledByTouch) return;
+      handler(e);
+    });
   }
 
   function showConfirm(message, onYes) {
@@ -183,7 +242,28 @@
 
   /* ---------- スタート・人数・名前 ---------- */
 
+  function initVersionDisplay() {
+    const versionEl = $("app-version");
+    if (versionEl && CONFIG.appVersion) {
+      versionEl.textContent = CONFIG.appVersion;
+    }
+
+    const releaseNotesEl = $("app-release-notes");
+    if (releaseNotesEl) {
+      const notes =
+        typeof CONFIG.appReleaseNotes === "string" ? CONFIG.appReleaseNotes : "";
+      if (notes.trim() === "") {
+        releaseNotesEl.setAttribute("hidden", "");
+        releaseNotesEl.textContent = "";
+      } else {
+        releaseNotesEl.removeAttribute("hidden");
+        releaseNotesEl.textContent = notes;
+      }
+    }
+  }
+
   function initStartScreen() {
+    initVersionDisplay();
     $("btn-start").textContent = CONFIG.startButtonLabel;
 
     const creditsEl = $("start-credits");
@@ -200,11 +280,6 @@
     });
     $("count-heading").textContent = CONFIG.playerCountHeading;
     $("names-heading").textContent = CONFIG.namesHeading || "名前を入力";
-    const backLabel = CONFIG.backButtonLabel || "戻る";
-    const btnBackCount = $("btn-back-count");
-    const btnBackNames = $("btn-back-names");
-    if (btnBackCount) btnBackCount.textContent = backLabel;
-    if (btnBackNames) btnBackNames.textContent = backLabel;
 
     document.querySelectorAll(".btn-count").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -725,22 +800,23 @@
   /* ---------- 起動 ---------- */
 
   function initNavigation() {
-    document.addEventListener("click", (e) => {
-      const target = e.target;
-      if (!target || !target.id) return;
-      if (target.id === "btn-back-count") {
-        e.preventDefault();
-        showScreen("screen-start");
-      } else if (target.id === "btn-back-names") {
-        e.preventDefault();
-        showScreen("screen-count");
-      }
+    const backLabel = CONFIG.backButtonLabel || "戻る";
+    const btnBackCount = $("btn-back-count");
+    const btnBackNames = $("btn-back-names");
+    if (btnBackCount) btnBackCount.textContent = backLabel;
+    if (btnBackNames) btnBackNames.textContent = backLabel;
+
+    bindActionButton(btnBackCount, () => {
+      showScreen("screen-start");
+    });
+    bindActionButton(btnBackNames, () => {
+      showScreen("screen-count");
     });
   }
 
   async function boot() {
-    initNavigation();
     initStartScreen();
+    initNavigation();
     initDialogs();
 
     try {
@@ -761,6 +837,12 @@
     } else {
       showScreen("screen-start");
     }
+
+    /* 初期表示時の戻るボタン非表示を確実にする */
+    const backCount = $("btn-back-count");
+    const backNames = $("btn-back-names");
+    if (backCount) backCount.hidden = true;
+    if (backNames) backNames.hidden = true;
   }
 
   if (document.readyState === "loading") {

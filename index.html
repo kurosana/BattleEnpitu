@@ -14,8 +14,12 @@
   </section>
 
   <!-- スタート画面 -->
-  <section id="screen-start" class="screen screen-scroll">
-    <div class="screen-scroll-body screen-start-body">
+  <section id="screen-start" class="screen screen-start">
+    <div class="app-version-wrap" id="app-version-wrap">
+      <span class="app-version" id="app-version"></span>
+      <span class="app-version app-release-notes" id="app-release-notes" hidden></span>
+    </div>
+    <div class="screen-start-inner">
       <div class="screen-center">
         <button type="button" class="btn-primary btn-start-large" id="btn-start">スタート</button>
       </div>
@@ -25,7 +29,6 @@
 
   <!-- 人数選択画面 -->
   <section id="screen-count" class="screen screen-scroll">
-    <button type="button" class="btn-exit btn-nav-fixed" id="btn-back-count">戻る</button>
     <div class="screen-scroll-body">
       <h1 class="screen-heading" id="count-heading">何人で遊びますか？</h1>
       <div class="count-buttons" id="count-buttons">
@@ -39,7 +42,6 @@
 
   <!-- 名前入力画面 -->
   <section id="screen-names" class="screen screen-scroll">
-    <button type="button" class="btn-exit btn-nav-fixed" id="btn-back-names">戻る</button>
     <div class="screen-scroll-body">
       <h1 class="screen-heading" id="names-heading">名前を入力</h1>
       <div class="names-form" id="names-form"></div>
@@ -55,6 +57,10 @@
     </header>
     <div class="game-players" id="game-players"></div>
   </section>
+
+  <!-- 戻るボタン（#app 直下・タッチ判定を安定させる） -->
+  <button type="button" class="btn-exit btn-nav-fixed" id="btn-back-count" hidden>戻る</button>
+  <button type="button" class="btn-exit btn-nav-fixed" id="btn-back-names" hidden>戻る</button>
   </div>
 
   <!-- 確認ダイアログ -->
