@@ -355,7 +355,7 @@
     const statusLabel = active.status || "状態";
     const moveOptions = buildMoveSelectOptions(active.move);
     const helpMark = active.move
-      ? '<button type="button" class="btn-move-help" data-action="move-help" aria-label="わざの効果">○?</button>'
+      ? '<button type="button" class="btn-move-help" data-action="move-help" aria-label="わざの効果">？</button>'
       : "";
 
     const attrDot = active.attribute === "●" ? " active" : "";

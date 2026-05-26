@@ -7,7 +7,7 @@ const CONFIG = {
   appTitle: "バトエンツール",
 
   /** バージョン表記（スタート画面左上） */
-  appVersion: "v1.0.4",
+  appVersion: "v1.0.6",
 
   /** アップデート情報（空文字 "" で非表示。改行可） */
   appReleaseNotes: "",
@@ -43,7 +43,7 @@ const CONFIG = {
   hpStep: 10,
 
   /** 未設定ポケモンの表示名 */
-  unassignedPokemonName: "画像をタップ",
+  unassignedPokemonName: "画像をタップ！",
 
   /** 消しゴムボタンの表示 */
   eraserButtonLabel: "消",
