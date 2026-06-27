@@ -8,39 +8,47 @@
 </head>
 <body>
   <div id="app">
-  <!-- ローディング -->
   <section id="screen-loading" class="screen active">
     <p class="loading-text">読み込み中…</p>
   </section>
 
-  <!-- スタート画面 -->
   <section id="screen-start" class="screen screen-start">
     <div class="app-version-wrap" id="app-version-wrap">
       <span class="app-version" id="app-version"></span>
       <span class="app-version app-release-notes" id="app-release-notes" hidden></span>
     </div>
     <div class="screen-start-inner">
-      <div class="screen-center">
+      <div class="screen-center start-buttons">
         <button type="button" class="btn-primary btn-start-large" id="btn-start">スタート</button>
+        <button type="button" class="btn-outline btn-personal" id="btn-personal">個人管理モード</button>
       </div>
       <footer class="start-credits" id="start-credits" aria-label="クレジット"></footer>
     </div>
   </section>
 
-  <!-- 人数選択画面 -->
-  <section id="screen-count" class="screen screen-scroll">
+  <section id="screen-bottles" class="screen screen-scroll">
     <div class="screen-scroll-body">
-      <h1 class="screen-heading" id="count-heading">何人で遊びますか？</h1>
-      <div class="count-buttons" id="count-buttons">
-      <button type="button" class="btn-primary btn-count" data-count="2">2人</button>
-      <button type="button" class="btn-primary btn-count" data-count="3">3人</button>
-      <button type="button" class="btn-primary btn-count" data-count="4">4人</button>
-      <button type="button" class="btn-primary btn-count" data-count="5">5人</button>
+      <h1 class="screen-heading" id="bottles-heading">1人何本で遊びますか？</h1>
+      <div class="count-buttons" id="bottle-buttons">
+        <button type="button" class="btn-primary btn-count" data-bottles="1">1本</button>
+        <button type="button" class="btn-primary btn-count" data-bottles="2">2本</button>
+        <button type="button" class="btn-primary btn-count" data-bottles="3">3本</button>
       </div>
     </div>
   </section>
 
-  <!-- 名前入力画面 -->
+  <section id="screen-count" class="screen screen-scroll">
+    <div class="screen-scroll-body">
+      <h1 class="screen-heading" id="count-heading">何人で遊びますか？</h1>
+      <div class="count-buttons" id="count-buttons">
+        <button type="button" class="btn-primary btn-count" data-count="2">2人</button>
+        <button type="button" class="btn-primary btn-count" data-count="3">3人</button>
+        <button type="button" class="btn-primary btn-count" data-count="4">4人</button>
+        <button type="button" class="btn-primary btn-count" data-count="5">5人</button>
+      </div>
+    </div>
+  </section>
+
   <section id="screen-names" class="screen screen-scroll">
     <div class="screen-scroll-body">
       <h1 class="screen-heading" id="names-heading">名前を入力</h1>
@@ -49,7 +57,6 @@
     </div>
   </section>
 
-  <!-- ゲーム管理画面 -->
   <section id="screen-game" class="screen">
     <header class="game-header">
       <h1 class="game-title" id="game-title">バトエンツール</h1>
@@ -58,12 +65,19 @@
     <div class="game-players" id="game-players"></div>
   </section>
 
-  <!-- 戻るボタン（#app 直下・タッチ判定を安定させる） -->
+  <section id="screen-personal" class="screen">
+    <header class="game-header">
+      <h1 class="game-title" id="personal-title">個人管理</h1>
+      <button type="button" class="btn-exit" id="btn-exit-personal">終了</button>
+    </header>
+    <div class="personal-body" id="personal-body"></div>
+  </section>
+
+  <button type="button" class="btn-exit btn-nav-fixed" id="btn-back-bottles" hidden>戻る</button>
   <button type="button" class="btn-exit btn-nav-fixed" id="btn-back-count" hidden>戻る</button>
   <button type="button" class="btn-exit btn-nav-fixed" id="btn-back-names" hidden>戻る</button>
   </div>
 
-  <!-- 確認ダイアログ -->
   <div id="dialog-confirm" class="dialog" aria-hidden="true">
     <div class="dialog-backdrop"></div>
     <div class="dialog-box">
@@ -75,41 +89,28 @@
     </div>
   </div>
 
-  <!-- ポケモン検索オーバーレイ -->
   <div id="overlay-search" class="overlay overlay-search" aria-hidden="true">
-    <div class="overlay-inner">
+    <div class="overlay-inner search-overlay-inner">
       <div class="search-header">
+        <button type="button" class="btn-back-search" id="btn-search-back-types" hidden>タイプ一覧へ</button>
         <input type="search" id="search-pokemon" placeholder="ポケモン名で検索" autocomplete="off">
         <button type="button" class="btn-close-overlay" id="btn-close-search">閉じる</button>
       </div>
-      <div class="search-results" id="search-results"></div>
+      <div class="type-list" id="type-list"></div>
+      <div class="search-results" id="search-results" hidden></div>
     </div>
   </div>
 
-  <!-- ポケモン交代オーバーレイ -->
-  <div id="overlay-switch" class="overlay overlay-panel" aria-hidden="true">
-    <div class="panel-inner switch-panel">
+  <div id="overlay-edit" class="overlay overlay-panel overlay-edit" aria-hidden="true">
+    <div class="panel-inner edit-panel">
       <header class="panel-header">
-        <button type="button" class="btn-back-panel" id="btn-switch-back">戻る</button>
-        <h2 class="panel-title" id="switch-player-name"></h2>
+        <button type="button" class="btn-back-panel" id="btn-edit-back">戻る</button>
+        <h2 class="panel-title" id="edit-player-name"></h2>
       </header>
-      <div class="switch-body" id="switch-body"></div>
+      <div class="edit-body" id="edit-body"></div>
     </div>
   </div>
 
-  <!-- 状態異常選択オーバーレイ -->
-  <div id="overlay-status" class="overlay overlay-panel" aria-hidden="true">
-    <div class="panel-inner status-panel">
-      <header class="panel-header">
-        <button type="button" class="btn-back-panel" id="btn-status-back">戻る</button>
-        <h2 class="panel-title" id="status-panel-title">状態異常を選択</h2>
-      </header>
-      <div class="status-buttons" id="status-buttons"></div>
-      <button type="button" class="btn-secondary btn-clear-status" id="btn-clear-status">解除</button>
-    </div>
-  </div>
-
-  <!-- わざ効果オーバーレイ -->
   <div id="overlay-move-help" class="overlay overlay-panel" aria-hidden="true">
     <div class="panel-inner move-help-panel">
       <header class="panel-header">

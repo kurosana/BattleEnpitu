@@ -1,12 +1,12 @@
 /**
  * データ読み込み・CSV解析・ポケモン検索
- * すべてローカル（同一オリジン）の Data フォルダから fetch します。
  */
 const DataService = (function () {
   const BASE = "./";
 
   let pokemonList = [];
   let evolveMap = {};
+  let evolveTargetDexNos = new Set();
   let moveList = [];
   let ready = false;
 
@@ -40,6 +40,11 @@ const DataService = (function () {
     return res.text();
   }
 
+  function symbolToDisplay(code) {
+    if (!code) return "";
+    return (CONFIG.symbolMap && CONFIG.symbolMap[code]) || code;
+  }
+
   async function loadAll() {
     if (ready) return;
 
@@ -55,14 +60,20 @@ const DataService = (function () {
       .map((row) => ({
         dexNo: String(row[0]).trim(),
         name: row[1].trim(),
+        type: (row[2] || "").trim(),
+        symbol: (row[3] || "").trim(),
       }));
 
     evolveMap = {};
+    evolveTargetDexNos = new Set();
     if (evolveCsv && evolveCsv.trim()) {
       parseCSV(evolveCsv)
         .filter((row) => row[0] && row[1] && /^\d+$/.test(String(row[0]).trim()))
         .forEach((row) => {
-          evolveMap[String(row[0]).trim()] = String(row[1]).trim();
+          const from = String(row[0]).trim();
+          const to = String(row[1]).trim();
+          evolveMap[from] = to;
+          evolveTargetDexNos.add(to);
         });
     }
 
@@ -70,14 +81,7 @@ const DataService = (function () {
       .filter((row) => row[0])
       .map((row) => ({
         name: row[0].trim(),
-        rolls: [
-          row[1] || "",
-          row[2] || "",
-          row[3] || "",
-          row[4] || "",
-          row[5] || "",
-          row[6] || "",
-        ],
+        rolls: [row[1] || "", row[2] || "", row[3] || "", row[4] || "", row[5] || "", row[6] || ""],
       }));
 
     ready = true;
@@ -87,10 +91,6 @@ const DataService = (function () {
     return str.replace(/[\u3041-\u3096]/g, (c) =>
       String.fromCharCode(c.charCodeAt(0) + 0x60)
     );
-  }
-
-  function getPokemonList() {
-    return pokemonList;
   }
 
   function getPokemonByDexNo(dexNo) {
@@ -104,13 +104,71 @@ const DataService = (function () {
     return p ? p.name : null;
   }
 
-  function searchPokemon(query) {
+  function getSymbol(dexNo) {
+    const p = getPokemonByDexNo(dexNo);
+    return p ? symbolToDisplay(p.symbol) : "";
+  }
+
+  function getType(dexNo) {
+    const p = getPokemonByDexNo(dexNo);
+    return p ? p.type : "";
+  }
+
+  function getTypeIconPath(typeName) {
+    if (!typeName) return null;
+    const file = CONFIG.typeIcons && CONFIG.typeIcons[typeName];
+    if (!file) return null;
+    const folder = CONFIG.typeIconFolder || "Image/Type";
+    return folder + "/" + file;
+  }
+
+  function getTypeIconPathByDex(dexNo) {
+    return getTypeIconPath(getType(dexNo));
+  }
+
+  function isSearchable(p) {
+    return Boolean(p.type);
+  }
+
+  function getTypeList() {
+    const seen = new Set();
+    const list = [];
+    pokemonList.forEach((p) => {
+      if (isSearchable(p) && p.type && !seen.has(p.type)) {
+        seen.add(p.type);
+        list.push(p.type);
+      }
+    });
+    return list;
+  }
+
+  function isEvolveTarget(dexNo) {
+    return evolveTargetDexNos.has(String(dexNo).trim());
+  }
+
+  function sortSearchResults(list) {
+    const base = [];
+    const targets = [];
+    list.forEach((p) => {
+      if (isEvolveTarget(p.dexNo)) targets.push(p);
+      else base.push(p);
+    });
+    return base.concat(targets);
+  }
+
+  function searchPokemon(query, typeFilter) {
     const limit = CONFIG.searchResultLimit || 100;
+    let list = pokemonList.filter(isSearchable);
+    if (typeFilter) {
+      list = list.filter((p) => p.type === typeFilter);
+    }
     const q = toKatakana((query || "").trim().toLowerCase());
-    if (!q) return pokemonList.slice(0, limit);
-    return pokemonList
-      .filter((p) => toKatakana(p.name.toLowerCase()).includes(q))
-      .slice(0, limit);
+    if (!q) {
+      return sortSearchResults(list).slice(0, limit);
+    }
+    return sortSearchResults(
+      list.filter((p) => toKatakana(p.name.toLowerCase()).includes(q))
+    ).slice(0, limit);
   }
 
   function getEvolvedDexNo(dexNo) {
@@ -133,20 +191,18 @@ const DataService = (function () {
 
   function getMoveEffect(moveName) {
     const m = moveList.find((x) => x.name === moveName);
-    if (!m) return null;
-    return m.rolls;
-  }
-
-  function isReady() {
-    return ready;
+    return m ? m.rolls : null;
   }
 
   return {
     loadAll,
-    isReady,
-    getPokemonList,
     getPokemonByDexNo,
     getPokemonName,
+    getSymbol,
+    getType,
+    getTypeIconPath,
+    getTypeIconPathByDex,
+    getTypeList,
     searchPokemon,
     getEvolvedDexNo,
     getDisplayDexNo,

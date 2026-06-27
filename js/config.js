@@ -1,54 +1,38 @@
 /**
  * バトエンツール - 設定ファイル
- * メンテナンス時はこのファイルだけ編集すれば多くの表示・挙動を変更できます。
  */
 const CONFIG = {
-  /** アプリタイトル（ヘッダー等に表示） */
   appTitle: "バトエンツール",
 
-  /** バージョン表記（スタート画面左上） */
-  appVersion: "v1.0.6",
-
-  /** アップデート情報（空文字 "" で非表示。改行可） */
+  appVersion: "v3.0.0",
   appReleaseNotes: "",
 
-  /** スタート画面のボタン文言 */
   startButtonLabel: "スタート",
+  personalModeButtonLabel: "個人管理モード",
 
-  /** スタート画面下部のクレジット・著作権表記 */
   creditLines: [
     "使用しているドット絵は転寝みるくさん(@komori541milk)からお借りしています。",
     "使用しているゲームの著作権及び商標権、その他知的財産権は、当該コンテンツの発信元に帰属します",
   ],
 
-  /** 人数選択画面の見出し */
+  bottleCountHeading: "1人何本で遊びますか？",
   playerCountHeading: "何人で遊びますか？",
-
-  /** 名前入力画面の見出し */
   namesHeading: "名前を入力",
-
-  /** セットアップ画面の戻るボタン文言 */
+  personalNamesHeading: "名前を入力",
   backButtonLabel: "戻る",
-
-  /** 名前入力画面のボタン文言 */
   gameStartButtonLabel: "ゲームスタート！",
 
-  /** プレイヤー名の最大文字数 */
   playerNameMaxLength: 20,
 
-  /** HPの初期値・最小・最大・変動幅 */
   hpInitial: 100,
   hpMin: 0,
   hpMax: 100,
   hpStep: 10,
 
-  /** 未設定ポケモンの表示名 */
   unassignedPokemonName: "画像をタップ！",
 
-  /** 消しゴムボタンの表示 */
   eraserButtonLabel: "消",
 
-  /** 状態異常の一覧（ボタン表示順） */
   statusConditions: [
     "まひ",
     "ねむり",
@@ -57,26 +41,46 @@ const CONFIG = {
     "やけど",
     "やどりぎ",
     "きゅうしょ",
+    "キャップしんか",
+    "ぶんしん",
   ],
 
-  /** 状態異常ポップアップの見出し */
-  statusPopupTitle: "状態異常を選択",
-
-  /** 検索結果の最大件数 */
   searchResultLimit: 100,
-
-  /** タッチ操作とスクロールを区別する距離（px） */
   touchThresholdPx: 15,
 
-  /** localStorage のキー名 */
-  storageKey: "batoen_game_state",
+  storageKey: "batoen_game_state_v2",
 
-  /** 画像フォルダ（末尾スラッシュなし） */
   imageFolder: "Image",
-
-  /** 未設定時の画像ファイル名 */
   questionImage: "question.png",
-
-  /** CSV フォルダ */
+  iconFolder: "Image/icon",
+  typeIconFolder: "Image/Type",
   dataFolder: "Data",
+
+  moveIcon: "waza.png",
+  evolveIcon: "evolve.png",
+  statusIcons: {
+    ねむり: "asleep_icon.png",
+    やけど: "burned_Icon.png",
+    まひ: "paralyzed_icon.png",
+    どく: "poisoned_icon.png",
+    こんらん: "confused_icon.png",
+    やどりぎ: "yadorigi_icon.png",
+    きゅうしょ: "critical_icon.png",
+    ぶんしん: "bunsin_icon.png",
+  },
+
+  symbolMap: { C: "●", S: "★" },
+
+  typeIcons: {
+    ほのお: "fire.png",
+    みず: "water.png",
+    くさ: "grass.png",
+    でんき: "electric.png",
+    じめん: "ground.png",
+    エスパー: "psychic.png",
+    どく: "poison.png",
+    ひこう: "flying.png",
+    むし: "bug.png",
+    ノーマル: "normal.png",
+  },
 };

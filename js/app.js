@@ -1,14 +1,16 @@
 /**
- * バトエンツール - メインアプリ
+ * バトエンツール v2 - メインアプリ
  */
 (function () {
   "use strict";
 
   let state = null;
+  let setupMode = "versus";
   let playerCount = 0;
+  let bottles = 3;
   let searchContext = null;
-  let statusContext = null;
-  let switchPlayerIndex = null;
+  let searchTypeFilter = null;
+  let editPlayerIndex = null;
   let confirmCallback = null;
   let searchTouchStartX = 0;
   let searchTouchStartY = 0;
@@ -28,31 +30,30 @@
 
   function imagePath(dexNo) {
     const folder = CONFIG.imageFolder || "Image";
-    if (!dexNo) {
-      return folder + "/" + (CONFIG.questionImage || "question.png");
-    }
+    if (!dexNo) return folder + "/" + (CONFIG.questionImage || "question.png");
     return folder + "/" + dexNo + ".png";
   }
 
-  function createEmptyPokemon() {
-    return {
-      dexNo: null,
-      evolved: false,
-      attribute: null,
-      hp: CONFIG.hpInitial,
-      status: null,
-      move: null,
-    };
+  function iconPath(filename) {
+    const folder = CONFIG.iconFolder || "Image/icon";
+    return folder + "/" + filename;
   }
 
-  function createInitialState(count, names) {
+  function createEmptyPokemon() {
+    return { dexNo: null, evolved: false, hp: CONFIG.hpInitial, status: null, move: null };
+  }
+
+  function createInitialState(count, names, mode, bottleCount) {
     return {
+      mode: mode,
+      bottles: bottleCount,
       playerCount: count,
       players: names.map((name) => ({
         name: name.trim() || "プレイヤー",
         eraserUsed: false,
+        rank: null,
         activePokemonIndex: 0,
-        pokemon: [createEmptyPokemon(), createEmptyPokemon(), createEmptyPokemon()],
+        pokemon: Array.from({ length: bottleCount }, () => createEmptyPokemon()),
       })),
     };
   }
@@ -61,16 +62,16 @@
     if (!state) return;
     try {
       localStorage.setItem(CONFIG.storageKey, JSON.stringify(state));
-    } catch (_) {
-      /* ignore */
-    }
+    } catch (_) {}
   }
 
   function loadState() {
     try {
       const raw = localStorage.getItem(CONFIG.storageKey);
       if (!raw) return null;
-      return JSON.parse(raw);
+      const s = JSON.parse(raw);
+      if (!s || !s.players || !s.bottles) return null;
+      return s;
     } catch (_) {
       return null;
     }
@@ -79,22 +80,22 @@
   function clearState() {
     try {
       localStorage.removeItem(CONFIG.storageKey);
-    } catch (_) {
-      /* ignore */
-    }
+      localStorage.removeItem("batoen_game_state");
+    } catch (_) {}
   }
 
   function showScreen(id) {
     document.querySelectorAll(".screen").forEach((el) => {
       el.classList.toggle("active", el.id === id);
     });
+    const backBottles = $("btn-back-bottles");
     const backCount = $("btn-back-count");
     const backNames = $("btn-back-names");
+    if (backBottles) backBottles.hidden = id !== "screen-bottles";
     if (backCount) backCount.hidden = id !== "screen-count";
     if (backNames) backNames.hidden = id !== "screen-names";
   }
 
-  /** スマホ向け：タップとスクロールを区別してボタンを確実に反応させる */
   function bindActionButton(el, handler) {
     if (!el) return;
     let touchStartX = 0;
@@ -102,51 +103,58 @@
     let touchMoved = false;
     let handledByTouch = false;
 
-    el.addEventListener(
-      "touchstart",
-      (e) => {
-        touchMoved = false;
-        handledByTouch = false;
-        if (e.touches.length > 0) {
-          touchStartX = e.touches[0].clientX;
-          touchStartY = e.touches[0].clientY;
-        }
-      },
-      { passive: true }
-    );
+    el.addEventListener("touchstart", (e) => {
+      touchMoved = false;
+      handledByTouch = false;
+      if (e.touches.length > 0) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+      }
+    }, { passive: true });
 
-    el.addEventListener(
-      "touchmove",
-      (e) => {
-        if (e.touches.length === 0) return;
-        const dx = e.touches[0].clientX - touchStartX;
-        const dy = e.touches[0].clientY - touchStartY;
-        const threshold = CONFIG.touchThresholdPx || 15;
-        if (dx * dx + dy * dy > threshold * threshold) {
-          touchMoved = true;
-        }
-      },
-      { passive: true }
-    );
+    el.addEventListener("touchmove", (e) => {
+      if (e.touches.length === 0) return;
+      const dx = e.touches[0].clientX - touchStartX;
+      const dy = e.touches[0].clientY - touchStartY;
+      const th = CONFIG.touchThresholdPx || 15;
+      if (dx * dx + dy * dy > th * th) touchMoved = true;
+    }, { passive: true });
 
-    el.addEventListener(
-      "touchend",
-      (e) => {
-        if (touchMoved) return;
-        e.preventDefault();
-        handledByTouch = true;
-        handler(e);
-        window.setTimeout(() => {
-          handledByTouch = false;
-        }, 400);
-      },
-      { passive: false }
-    );
+    el.addEventListener("touchend", (e) => {
+      if (touchMoved) return;
+      e.preventDefault();
+      handledByTouch = true;
+      handler(e);
+      window.setTimeout(() => { handledByTouch = false; }, 400);
+    }, { passive: false });
 
     el.addEventListener("click", (e) => {
       if (handledByTouch) return;
       handler(e);
     });
+  }
+
+  function bindTouchTap(el, handler) {
+    if (!el) return;
+    let startX = 0;
+    let startY = 0;
+    el.addEventListener("click", (e) => {
+      e.preventDefault();
+      handler(e);
+    });
+    el.addEventListener("touchstart", (e) => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    }, { passive: true });
+    el.addEventListener("touchend", (e) => {
+      const dx = e.changedTouches[0].clientX - startX;
+      const dy = e.changedTouches[0].clientY - startY;
+      const th = CONFIG.touchThresholdPx || 15;
+      if (dx * dx + dy * dy < th * th) {
+        e.preventDefault();
+        handler(e);
+      }
+    }, { passive: false });
   }
 
   function showConfirm(message, onYes) {
@@ -168,90 +176,133 @@
 
   function getDisplayInfo(poke) {
     if (!poke || !poke.dexNo) {
-      return {
-        dexNo: null,
-        name: CONFIG.unassignedPokemonName,
-      };
+      return { dexNo: null, name: CONFIG.unassignedPokemonName, symbol: "", typeIcon: null };
     }
     const displayDex = DataService.getDisplayDexNo(poke.dexNo, poke.evolved);
     const name = DataService.getPokemonName(displayDex) || CONFIG.unassignedPokemonName;
-    return { dexNo: displayDex, name };
+    const symbol = DataService.getSymbol(displayDex);
+    const typeIcon = DataService.getTypeIconPathByDex(displayDex);
+    return { dexNo: displayDex, name, symbol, typeIcon };
   }
 
   function isPlayerDefeated(player) {
     return player.pokemon.every((p) => p.hp <= CONFIG.hpMin);
   }
 
-  function bindTouchTap(el, handler) {
-    let startX = 0;
-    let startY = 0;
-    el.addEventListener("click", (e) => {
-      e.preventDefault();
-      handler(e);
-    });
-    el.addEventListener(
-      "touchstart",
-      (e) => {
-        startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
-      },
-      { passive: true }
-    );
-    el.addEventListener(
-      "touchend",
-      (e) => {
-        const dx = e.changedTouches[0].clientX - startX;
-        const dy = e.changedTouches[0].clientY - startY;
-        const threshold = CONFIG.touchThresholdPx || 15;
-        if (dx * dx + dy * dy < threshold * threshold) {
-          e.preventDefault();
-          handler(e);
-        }
-      },
-      { passive: false }
-    );
+  function normalizeHp(hp) {
+    const step = CONFIG.hpStep;
+    const v = Math.round(Number(hp) / step) * step;
+    return Math.max(CONFIG.hpMin, Math.min(CONFIG.hpMax, v));
   }
 
-  function bindSearchResultItem(item, onSelect) {
-    item.addEventListener("click", (e) => {
-      e.preventDefault();
-      onSelect();
-    });
-    item.addEventListener(
-      "touchstart",
-      (e) => {
-        searchTouchStartX = e.touches[0].clientX;
-        searchTouchStartY = e.touches[0].clientY;
-      },
-      { passive: true }
-    );
-    item.addEventListener(
-      "touchend",
-      (e) => {
-        const dx = e.changedTouches[0].clientX - searchTouchStartX;
-        const dy = e.changedTouches[0].clientY - searchTouchStartY;
-        const threshold = CONFIG.touchThresholdPx || 15;
-        if (dx * dx + dy * dy < threshold * threshold) {
-          e.preventDefault();
-          onSelect();
-        }
-      },
-      { passive: false }
-    );
+  function buildHpSelectOptions(currentHp) {
+    const normalized = normalizeHp(currentHp);
+    let html = "";
+    for (let v = CONFIG.hpMax; v >= CONFIG.hpMin; v -= CONFIG.hpStep) {
+      html += '<option value="' + v + '"' + (v === normalized ? " selected" : "") + ">" + v + "</option>";
+    }
+    return html;
   }
 
-  /* ---------- スタート・人数・名前 ---------- */
+  function buildMetaHtml(displayDex, name) {
+    const symbol = displayDex ? DataService.getSymbol(displayDex) : "";
+    const typeIcon = displayDex ? DataService.getTypeIconPathByDex(displayDex) : null;
+    let html = '<span class="poke-name-text">' + escapeHtml(name) + "</span>";
+    if (symbol) html += '<span class="poke-symbol">' + escapeHtml(symbol) + "</span>";
+    if (typeIcon) {
+      html += '<img class="poke-type-icon" src="' + escapeHtml(typeIcon) + '" alt="">';
+    }
+    return html;
+  }
+
+  function buildStatusIconsHtml(poke) {
+    if (!poke) return "";
+    const icons = [];
+    const folder = CONFIG.iconFolder || "Image/icon";
+    const showEvolveIcon = poke.evolved || poke.status === "キャップしんか";
+    if (showEvolveIcon && CONFIG.evolveIcon) {
+      icons.push(
+        '<img class="status-icon status-icon-evolve" src="' +
+        escapeHtml(folder + "/" + CONFIG.evolveIcon) +
+        '" alt="">'
+      );
+    }
+    if (poke.status && poke.status !== "キャップしんか" && CONFIG.statusIcons && CONFIG.statusIcons[poke.status]) {
+      icons.push(
+        '<img class="status-icon" src="' +
+        escapeHtml(folder + "/" + CONFIG.statusIcons[poke.status]) +
+        '" alt="">'
+      );
+    }
+    if (poke.move && CONFIG.moveIcon) {
+      icons.push(
+        '<img class="status-icon status-icon-move" src="' +
+        escapeHtml(folder + "/" + CONFIG.moveIcon) +
+        '" alt="">'
+      );
+    }
+    if (!icons.length) return "";
+    return '<div class="poke-status-icons">' + icons.join("") + "</div>";
+  }
+
+  function buildMoveSelectOptions(selected) {
+    let html = '<option value="">わざマシン</option>';
+    DataService.getMoveList().forEach((name) => {
+      html += '<option value="' + escapeHtml(name) + '"' + (name === selected ? " selected" : "") + ">" + escapeHtml(name) + "</option>";
+    });
+    return html;
+  }
+
+  function buildStatusSelectOptions(selected) {
+    let html = '<option value="">じょうたい</option>';
+    CONFIG.statusConditions.forEach((label) => {
+      html += '<option value="' + escapeHtml(label) + '"' + (label === selected ? " selected" : "") + ">" + escapeHtml(label) + "</option>";
+    });
+    return html;
+  }
+
+  function buildRankOptions(current, maxRank) {
+    let html = '<option value="">順位</option>';
+    for (let i = 1; i <= maxRank; i++) {
+      html += '<option value="' + i + '"' + (current === i ? " selected" : "") + ">" + i + "位</option>";
+    }
+    return html;
+  }
+
+  function setExclusiveCap(poke, field, value) {
+    if (field === "status") {
+      poke.status = value || null;
+      if (value) poke.move = null;
+    } else if (field === "move") {
+      poke.move = value || null;
+      if (value) poke.status = null;
+    }
+  }
+
+  function performSwitch(playerIndex, benchSlotIndex) {
+    const player = state.players[playerIndex];
+    const battleIdx = player.activePokemonIndex;
+    if (benchSlotIndex === battleIdx) return;
+
+    const temp = player.pokemon[battleIdx];
+    player.pokemon[battleIdx] = player.pokemon[benchSlotIndex];
+    player.pokemon[benchSlotIndex] = temp;
+
+    player.pokemon[battleIdx].status = null;
+    player.pokemon[battleIdx].move = null;
+
+    saveState();
+    renderActiveScreen();
+  }
+
+  /* ---------- Setup screens ---------- */
 
   function initVersionDisplay() {
     const versionEl = $("app-version");
-    if (versionEl && CONFIG.appVersion) {
-      versionEl.textContent = CONFIG.appVersion;
-    }
-
+    if (versionEl && CONFIG.appVersion) versionEl.textContent = CONFIG.appVersion;
     const releaseNotesEl = $("app-release-notes");
     if (releaseNotesEl) {
-      const notes =
-        typeof CONFIG.appReleaseNotes === "string" ? CONFIG.appReleaseNotes : "";
+      const notes = typeof CONFIG.appReleaseNotes === "string" ? CONFIG.appReleaseNotes : "";
       if (notes.trim() === "") {
         releaseNotesEl.setAttribute("hidden", "");
         releaseNotesEl.textContent = "";
@@ -265,29 +316,50 @@
   function initStartScreen() {
     initVersionDisplay();
     $("btn-start").textContent = CONFIG.startButtonLabel;
+    $("btn-personal").textContent = CONFIG.personalModeButtonLabel || "個人管理モード";
+    $("bottles-heading").textContent = CONFIG.bottleCountHeading;
+    $("count-heading").textContent = CONFIG.playerCountHeading;
 
     const creditsEl = $("start-credits");
-    if (creditsEl && CONFIG.creditLines && CONFIG.creditLines.length) {
-      creditsEl.innerHTML = CONFIG.creditLines
-        .map((line) => "<p>" + escapeHtml(line) + "</p>")
-        .join("");
+    if (creditsEl && CONFIG.creditLines) {
+      creditsEl.innerHTML = CONFIG.creditLines.map((line) => "<p>" + escapeHtml(line) + "</p>").join("");
     }
 
     $("btn-start").addEventListener("click", () => {
       clearState();
       state = null;
-      showScreen("screen-count");
+      setupMode = "versus";
+      showScreen("screen-bottles");
     });
-    $("count-heading").textContent = CONFIG.playerCountHeading;
-    $("names-heading").textContent = CONFIG.namesHeading || "名前を入力";
 
-    document.querySelectorAll(".btn-count").forEach((btn) => {
+    $("btn-personal").addEventListener("click", () => {
+      clearState();
+      state = null;
+      setupMode = "personal";
+      showScreen("screen-bottles");
+    });
+
+    document.querySelectorAll("[data-bottles]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        bottles = parseInt(btn.getAttribute("data-bottles"), 10);
+        if (setupMode === "personal") {
+          playerCount = 1;
+          renderNameForm();
+          showScreen("screen-names");
+        } else {
+          showScreen("screen-count");
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-count]").forEach((btn) => {
       btn.addEventListener("click", () => {
         playerCount = parseInt(btn.getAttribute("data-count"), 10);
         renderNameForm();
         showScreen("screen-names");
       });
     });
+
     $("btn-game-start").textContent = CONFIG.gameStartButtonLabel;
     $("btn-game-start").addEventListener("click", startGameFromNames);
   }
@@ -295,12 +367,14 @@
   function renderNameForm() {
     const form = $("names-form");
     form.innerHTML = "";
+    $("names-heading").textContent =
+      setupMode === "personal" ? CONFIG.personalNamesHeading || "名前を入力" : CONFIG.namesHeading;
     const maxLen = CONFIG.playerNameMaxLength;
     for (let i = 0; i < playerCount; i++) {
       const field = document.createElement("div");
       field.className = "name-field";
       const label = document.createElement("label");
-      label.textContent = i + 1 + "人目の名前";
+      label.textContent = setupMode === "personal" ? "名前" : i + 1 + "人目の名前";
       label.setAttribute("for", "name-input-" + i);
       const input = document.createElement("input");
       input.type = "text";
@@ -319,151 +393,143 @@
       const input = $("name-input-" + i);
       names.push((input && input.value.trim()) || i + 1 + "人目");
     }
-    state = createInitialState(playerCount, names);
+    state = createInitialState(playerCount, names, setupMode, bottles);
     saveState();
-    renderGameScreen();
-    showScreen("screen-game");
+    renderActiveScreen();
   }
 
-  /* ---------- ゲーム管理画面 ---------- */
+  function renderActiveScreen() {
+    if (!state) return;
+    if (state.mode === "personal") {
+      renderPersonalScreen();
+      showScreen("screen-personal");
+    } else {
+      renderGameScreen();
+      showScreen("screen-game");
+    }
+  }
+
+  /* ---------- Game screen ---------- */
+
+  function applyPlayerRowGrid(row, bottleCount) {
+    if (state.mode === "personal") return;
+    const playerCol = "minmax(2.5rem, 0.48fr)";
+    const battleCol = "minmax(0, 1.15fr)";
+    const hpCol = "minmax(0, 0.72fr)";
+    if (bottleCount <= 1) {
+      row.style.gridTemplateColumns = playerCol + " " + battleCol + " " + hpCol;
+    } else {
+      row.style.gridTemplateColumns =
+        playerCol + " " + battleCol + " " + hpCol + " minmax(0, 1.35fr)";
+    }
+  }
+
+  function buildPlayerColHtml(player) {
+    const eraserClass = player.eraserUsed ? " btn-pressed" : "";
+    if (state.mode === "personal") {
+      return (
+        '<div class="col-player col-player-inline">' +
+        '<div class="player-name-row">' +
+        '<div class="player-name">' + escapeHtml(player.name) + "</div>" +
+        '<button type="button" class="btn-eraser btn-chip btn-eraser-inline' + eraserClass + '" data-action="eraser">' +
+        escapeHtml(CONFIG.eraserButtonLabel || "消") + "</button>" +
+        "</div></div>"
+      );
+    }
+    return (
+      '<div class="col-player">' +
+      '<div class="player-name">' + escapeHtml(player.name) + "</div>" +
+      '<button type="button" class="btn-eraser btn-chip' + eraserClass + '" data-action="eraser">' +
+      escapeHtml(CONFIG.eraserButtonLabel || "消") + "</button>" +
+      (state.mode === "versus"
+        ? '<select class="rank-select" data-action="rank-select">' + buildRankOptions(player.rank, state.playerCount) + "</select>"
+        : "") +
+      "</div>"
+    );
+  }
+
+  function buildBenchPairHtml(player, slotIndex) {
+    const poke = player.pokemon[slotIndex];
+    return (
+      '<div class="bench-pair" data-bench-slot="' + slotIndex + '">' +
+      buildPokemonSlotHtml(player, slotIndex, false) +
+      buildHpBlockHtml(poke, false) +
+      "</div>"
+    );
+  }
+
+  function buildPokemonSlotHtml(player, slotIndex, isBattle) {
+    const poke = player.pokemon[slotIndex];
+    const display = getDisplayInfo(poke);
+    const gray = poke.hp <= CONFIG.hpMin ? " grayscale" : "";
+    const slotClass = isBattle ? "slot-battle" : "slot-bench";
+    return (
+      '<div class="pokemon-slot ' + slotClass + '" data-slot="' + slotIndex + '">' +
+      '<div class="slot-label">' + (isBattle ? "バトル場" : "ベンチ") + "</div>" +
+      '<div class="pokemon-img-wrap" data-action="poke-tap" data-slot="' + slotIndex + '">' +
+      buildStatusIconsHtml(isBattle ? poke : null) +
+      '<img class="' + gray.trim() + '" src="' + escapeHtml(imagePath(display.dexNo)) + '" alt="">' +
+      "</div>" +
+      '<div class="pokemon-name-label poke-meta">' + buildMetaHtml(display.dexNo, display.name) + "</div>" +
+      "</div>"
+    );
+  }
+
+  function buildHpBlockHtml(poke, editable) {
+    if (editable) {
+      const upDis = poke.hp >= CONFIG.hpMax ? " disabled" : "";
+      const downDis = poke.hp <= CONFIG.hpMin ? " disabled" : "";
+      return (
+        '<div class="col-hp hp-editable">' +
+        '<div class="hp-label">残りHP</div>' +
+        '<div class="hp-value"><select class="hp-value-select" data-action="hp-select">' +
+        buildHpSelectOptions(poke.hp) +
+        "</select></div>" +
+        '<div class="hp-buttons">' +
+        '<button type="button" class="btn-hp"' + upDis + ' data-action="hp-up">▲</button>' +
+        '<button type="button" class="btn-hp"' + downDis + ' data-action="hp-down">▼</button>' +
+        "</div></div>"
+      );
+    }
+    return (
+      '<div class="col-hp hp-readonly">' +
+      '<div class="hp-label">HP</div>' +
+      '<div class="hp-readonly-value">' + poke.hp + "</div></div>"
+    );
+  }
+
+  function buildPlayerRowHtml(player, playerIndex) {
+    const battleIdx = player.activePokemonIndex;
+    const battlePoke = player.pokemon[battleIdx];
+    const benchPairs = [];
+    for (let i = 0; i < state.bottles; i++) {
+      if (i === battleIdx) continue;
+      benchPairs.push(buildBenchPairHtml(player, i));
+    }
+
+    return (
+      buildPlayerColHtml(player) +
+      buildPokemonSlotHtml(player, battleIdx, true) +
+      buildHpBlockHtml(battlePoke, true) +
+      (benchPairs.length ? '<div class="col-bench-area">' + benchPairs.join("") + "</div>" : "")
+    );
+  }
 
   function renderGameScreen() {
     if (!state) return;
     $("game-title").textContent = CONFIG.appTitle;
     const container = $("game-players");
     container.innerHTML = "";
-    const count = state.playerCount;
-    container.style.setProperty("--player-count", String(count));
-
     state.players.forEach((player, playerIndex) => {
       const row = document.createElement("div");
       row.className = "player-row";
       if (isPlayerDefeated(player)) row.classList.add("player-defeated");
       row.dataset.playerIndex = String(playerIndex);
-
-      const active = getActivePokemon(player);
-      const display = getDisplayInfo(active);
-
-      row.innerHTML = buildPlayerRowHtml(player, playerIndex, display);
+      row.innerHTML = buildPlayerRowHtml(player, playerIndex);
+      applyPlayerRowGrid(row, state.bottles);
       container.appendChild(row);
       bindPlayerRowEvents(row, playerIndex);
     });
-  }
-
-  function buildPlayerRowHtml(player, playerIndex, display) {
-    const active = getActivePokemon(player);
-    const statusLabel = active.status || "状態";
-    const moveOptions = buildMoveSelectOptions(active.move);
-    const helpMark = active.move
-      ? '<button type="button" class="btn-move-help" data-action="move-help" aria-label="わざの効果">？</button>'
-      : "";
-
-    const attrDot = active.attribute === "●" ? " active" : "";
-    const attrStar = active.attribute === "★" ? " active" : "";
-    const eraserClass = player.eraserUsed ? " btn-pressed" : "";
-    const evolveClass = active.evolved ? " btn-pressed" : "";
-
-    const hpUpDisabled = active.hp >= CONFIG.hpMax ? " disabled" : "";
-    const hpDownDisabled = active.hp <= CONFIG.hpMin ? " disabled" : "";
-
-    return (
-      '<div class="col-player">' +
-      '<div class="player-name">' +
-      escapeHtml(player.name) +
-      "</div>" +
-      '<div class="col-action-bar">' +
-      '<button type="button" class="btn-eraser btn-chip' +
-      eraserClass +
-      '" data-action="eraser">' +
-      escapeHtml(CONFIG.eraserButtonLabel || "消しゴム") +
-      "</button>" +
-      "</div>" +
-      "</div>" +
-      '<div class="col-pokemon">' +
-      '<div class="pokemon-img-wrap" data-action="pick-pokemon" data-slot="' +
-      player.activePokemonIndex +
-      '">' +
-      '<img src="' +
-      escapeHtml(imagePath(display.dexNo)) +
-      '" alt="" loading="lazy">' +
-      "</div>" +
-      '<div class="pokemon-name-label">' +
-      escapeHtml(display.name) +
-      "</div>" +
-      '<div class="col-action-bar">' +
-      '<button type="button" class="btn-switch-pokemon btn-chip" data-action="open-switch">交代</button>' +
-      "</div>" +
-      "</div>" +
-      '<div class="col-status">' +
-      '<div class="attr-row">' +
-      '<button type="button" class="btn-attr' +
-      attrDot +
-      '" data-action="attr" data-value="●">●</button>' +
-      '<button type="button" class="btn-attr' +
-      attrStar +
-      '" data-action="attr" data-value="★">★</button>' +
-      "</div>" +
-      '<button type="button" class="btn-toggle evolve' +
-      evolveClass +
-      '" data-action="evolve">進化</button>' +
-      '<button type="button" class="btn-status" data-action="open-status">' +
-      escapeHtml(statusLabel) +
-      "</button>" +
-      '<div class="btn-move-wrap">' +
-      '<select data-action="move-select">' +
-      moveOptions +
-      "</select>" +
-      helpMark +
-      "</div>" +
-      "</div>" +
-      '<div class="col-hp">' +
-      '<div class="hp-label">残りHP</div>' +
-      '<div class="hp-value">' +
-      '<select class="hp-value-select" data-action="hp-select" aria-label="残りHP">' +
-      buildHpSelectOptions(active.hp) +
-      "</select>" +
-      "</div>" +
-      '<div class="hp-buttons">' +
-      '<button type="button" class="btn-hp"' +
-      hpUpDisabled +
-      ' data-action="hp-up">▲</button>' +
-      '<button type="button" class="btn-hp"' +
-      hpDownDisabled +
-      ' data-action="hp-down">▼</button>' +
-      "</div>" +
-      "</div>"
-    );
-  }
-
-  function normalizeHp(hp) {
-    const step = CONFIG.hpStep;
-    const min = CONFIG.hpMin;
-    const max = CONFIG.hpMax;
-    const v = Math.round(Number(hp) / step) * step;
-    return Math.max(min, Math.min(max, v));
-  }
-
-  function buildHpSelectOptions(currentHp) {
-    const min = CONFIG.hpMin;
-    const max = CONFIG.hpMax;
-    const step = CONFIG.hpStep;
-    const normalized = normalizeHp(currentHp);
-    let html = "";
-    for (let v = max; v >= min; v -= step) {
-      const sel = v === normalized ? " selected" : "";
-      html += '<option value="' + v + '"' + sel + ">" + v + "</option>";
-    }
-    return html;
-  }
-
-  function buildMoveSelectOptions(selected) {
-    const moves = DataService.getMoveList();
-    let html = '<option value="">わざマシン</option>';
-    moves.forEach((name) => {
-      const sel = name === selected ? " selected" : "";
-      html += '<option value="' + escapeHtml(name) + '"' + sel + ">" + escapeHtml(name) + "</option>";
-    });
-    return html;
   }
 
   function bindPlayerRowEvents(row, playerIndex) {
@@ -473,69 +539,46 @@
       if (!player.eraserUsed) {
         player.eraserUsed = true;
         saveState();
-        renderGameScreen();
+        renderActiveScreen();
         return;
       }
       showConfirm("解除しますか？", () => {
         player.eraserUsed = false;
         saveState();
-        renderGameScreen();
+        renderActiveScreen();
       });
     });
 
-    const imgWrap = row.querySelector('[data-action="pick-pokemon"]');
-    bindTouchTap(imgWrap, () => {
-      openSearchOverlay(playerIndex, player.activePokemonIndex);
-    });
-
-    row.querySelector('[data-action="open-switch"]').addEventListener("click", () => {
-      openSwitchOverlay(playerIndex);
-    });
-
-    row.querySelectorAll('[data-action="attr"]').forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const active = getActivePokemon(player);
-        const val = btn.getAttribute("data-value");
-        active.attribute = active.attribute === val ? null : val;
+    const rankSelect = row.querySelector('[data-action="rank-select"]');
+    if (rankSelect) {
+      rankSelect.addEventListener("change", () => {
+        const v = rankSelect.value;
+        player.rank = v ? parseInt(v, 10) : null;
         saveState();
-        renderGameScreen();
-      });
-    });
-
-    row.querySelector('[data-action="evolve"]').addEventListener("click", () => {
-      const active = getActivePokemon(player);
-      if (!active.evolved) {
-        active.evolved = true;
-        saveState();
-        renderGameScreen();
-        return;
-      }
-      showConfirm("解除しますか？", () => {
-        active.evolved = false;
-        saveState();
-        renderGameScreen();
-      });
-    });
-
-    row.querySelector('[data-action="open-status"]').addEventListener("click", () => {
-      openStatusOverlay(playerIndex);
-    });
-
-    const moveSelect = row.querySelector('[data-action="move-select"]');
-    moveSelect.addEventListener("change", () => {
-      const active = getActivePokemon(player);
-      active.move = moveSelect.value || null;
-      saveState();
-      renderGameScreen();
-    });
-
-    const helpBtn = row.querySelector('[data-action="move-help"]');
-    if (helpBtn) {
-      helpBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        openMoveHelpOverlay(getActivePokemon(player).move);
       });
     }
+
+    row.querySelectorAll('[data-action="poke-tap"]').forEach((el) => {
+      const slot = parseInt(el.getAttribute("data-slot"), 10);
+      const isBattle = slot === player.activePokemonIndex;
+      bindTouchTap(el, () => {
+        if (isBattle) {
+          const poke = player.pokemon[slot];
+          if (!poke.dexNo) {
+            openSearchOverlay(playerIndex, slot, "battle_init");
+          } else {
+            openEditOverlay(playerIndex);
+          }
+        } else {
+          const poke = player.pokemon[slot];
+          if (!poke.dexNo) {
+            openSearchOverlay(playerIndex, slot, "bench_init");
+          } else {
+            performSwitch(playerIndex, slot);
+          }
+        }
+      });
+    });
 
     const hpSelect = row.querySelector('[data-action="hp-select"]');
     if (hpSelect) {
@@ -545,258 +588,264 @@
         if (!isNaN(val)) {
           active.hp = normalizeHp(val);
           saveState();
-          renderGameScreen();
+          renderActiveScreen();
         }
       });
     }
 
-    row.querySelector('[data-action="hp-up"]').addEventListener("click", () => {
-      const active = getActivePokemon(player);
-      if (active.hp < CONFIG.hpMax) {
-        active.hp = normalizeHp(active.hp + CONFIG.hpStep);
-        saveState();
-        renderGameScreen();
-      }
-    });
-
-    row.querySelector('[data-action="hp-down"]').addEventListener("click", () => {
-      const active = getActivePokemon(player);
-      if (active.hp > CONFIG.hpMin) {
-        active.hp = normalizeHp(active.hp - CONFIG.hpStep);
-        saveState();
-        renderGameScreen();
-      }
-    });
-  }
-
-  /* ---------- ポケモン検索 ---------- */
-
-  function openSearchOverlay(playerIndex, slotIndex) {
-    searchContext = { playerIndex, slotIndex };
-    const overlay = $("overlay-search");
-    overlay.classList.add("active");
-    overlay.setAttribute("aria-hidden", "false");
-    const searchInput = $("search-pokemon");
-    searchInput.value = "";
-    searchInput.focus();
-
-    function runSearch(q) {
-      const filtered = DataService.searchPokemon(q);
-      const results = $("search-results");
-      results.innerHTML = filtered
-        .map(
-          (p) =>
-            '<div class="search-result-item" data-dex="' +
-            escapeHtml(p.dexNo) +
-            '" data-name="' +
-            escapeHtml(p.name) +
-            '">' +
-            '<img src="' +
-            escapeHtml(imagePath(p.dexNo)) +
-            '" alt="">' +
-            "<span>" +
-            escapeHtml(p.name) +
-            "</span></div>"
-        )
-        .join("");
-
-      results.querySelectorAll(".search-result-item").forEach((item) => {
-        const dex = item.getAttribute("data-dex");
-        bindSearchResultItem(item, () => selectPokemon(dex));
+    const hpUp = row.querySelector('[data-action="hp-up"]');
+    if (hpUp) {
+      hpUp.addEventListener("click", () => {
+        const active = getActivePokemon(player);
+        if (active.hp < CONFIG.hpMax) {
+          active.hp = normalizeHp(active.hp + CONFIG.hpStep);
+          saveState();
+          renderActiveScreen();
+        }
       });
     }
 
-    searchInput.oninput = () => runSearch(searchInput.value);
-    runSearch("");
+    const hpDown = row.querySelector('[data-action="hp-down"]');
+    if (hpDown) {
+      hpDown.addEventListener("click", () => {
+        const active = getActivePokemon(player);
+        if (active.hp > CONFIG.hpMin) {
+          active.hp = normalizeHp(active.hp - CONFIG.hpStep);
+          saveState();
+          renderActiveScreen();
+        }
+      });
+    }
+  }
+
+  /* ---------- Personal screen ---------- */
+
+  function renderPersonalScreen() {
+    if (!state || !state.players[0]) return;
+    $("personal-title").textContent = state.players[0].name + " - 個人管理";
+    const body = $("personal-body");
+    const player = state.players[0];
+    const wrapper = document.createElement("div");
+    wrapper.className = "personal-player";
+    const row = document.createElement("div");
+    row.className = "player-row";
+    row.innerHTML = buildPlayerRowHtml(player, 0);
+    applyPlayerRowGrid(row, state.bottles);
+    wrapper.appendChild(row);
+    body.innerHTML = "";
+    body.appendChild(wrapper);
+    bindPlayerRowEvents(row, 0);
+  }
+
+  /* ---------- Edit overlay ---------- */
+
+  function openEditOverlay(playerIndex) {
+    editPlayerIndex = playerIndex;
+    const player = state.players[playerIndex];
+    const poke = getActivePokemon(player);
+    const display = getDisplayInfo(poke);
+    $("edit-player-name").textContent = player.name;
+    const evolveClass = poke.evolved ? " btn-pressed" : "";
+
+    $("edit-body").innerHTML =
+      '<div class="edit-left">' +
+      '<div class="edit-img-wrap">' +
+      buildStatusIconsHtml(poke) +
+      '<img src="' + escapeHtml(imagePath(display.dexNo)) + '" alt="">' +
+      "</div>" +
+      '<div class="edit-name poke-meta">' + buildMetaHtml(display.dexNo, display.name) + "</div>" +
+      '<button type="button" class="btn-secondary btn-change-pokemon" data-action="edit-change">ポケモン変更</button>' +
+      "</div>" +
+      '<div class="edit-right">' +
+      '<button type="button" class="btn-toggle evolve' + evolveClass + '" data-action="edit-evolve">進化</button>' +
+      '<select class="edit-select" data-action="edit-status">' + buildStatusSelectOptions(poke.status) + "</select>" +
+      '<div class="edit-move-wrap">' +
+      '<select class="edit-select" data-action="edit-move">' + buildMoveSelectOptions(poke.move) + "</select>" +
+      (poke.move ? '<button type="button" class="btn-move-help" data-action="edit-move-help">？</button>' : "") +
+      "</div></div>";
+
+    $("overlay-edit").classList.add("active");
+    $("overlay-edit").setAttribute("aria-hidden", "false");
+    bindEditEvents();
+  }
+
+  function closeEditOverlay() {
+    $("overlay-edit").classList.remove("active");
+    $("overlay-edit").setAttribute("aria-hidden", "true");
+    editPlayerIndex = null;
+    renderActiveScreen();
+  }
+
+  function bindEditEvents() {
+    if (editPlayerIndex == null) return;
+    const player = state.players[editPlayerIndex];
+    const poke = getActivePokemon(player);
+
+    $("edit-body").querySelector('[data-action="edit-change"]').addEventListener("click", () => {
+      openSearchOverlay(editPlayerIndex, player.activePokemonIndex, "edit_change");
+    });
+
+    $("edit-body").querySelector('[data-action="edit-evolve"]').addEventListener("click", () => {
+      if (!poke.evolved) {
+        poke.evolved = true;
+        saveState();
+        openEditOverlay(editPlayerIndex);
+        return;
+      }
+      showConfirm("解除しますか？", () => {
+        poke.evolved = false;
+        saveState();
+        openEditOverlay(editPlayerIndex);
+      });
+    });
+
+    $("edit-body").querySelector('[data-action="edit-status"]').addEventListener("change", (e) => {
+      setExclusiveCap(poke, "status", e.target.value || null);
+      saveState();
+      openEditOverlay(editPlayerIndex);
+    });
+
+    $("edit-body").querySelector('[data-action="edit-move"]').addEventListener("change", (e) => {
+      setExclusiveCap(poke, "move", e.target.value || null);
+      saveState();
+      openEditOverlay(editPlayerIndex);
+    });
+
+    const helpBtn = $("edit-body").querySelector('[data-action="edit-move-help"]');
+    if (helpBtn) {
+      helpBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openMoveHelpOverlay(poke.move);
+      });
+    }
+  }
+
+  /* ---------- Search overlay ---------- */
+
+  function setSearchOverlayMode(mode) {
+    const inner = document.querySelector(".search-overlay-inner");
+    if (inner) inner.classList.toggle("results-mode", mode === "results");
+  }
+
+  function showTypeList() {
+    searchTypeFilter = null;
+    setSearchOverlayMode("types");
+    $("type-list").hidden = false;
+    $("search-results").hidden = true;
+    $("btn-search-back-types").hidden = true;
+    $("search-pokemon").value = "";
+
+    const types = DataService.getTypeList();
+    $("type-list").innerHTML = types.map((t) => {
+      const icon = DataService.getTypeIconPath(t);
+      const iconHtml = icon ? '<img src="' + escapeHtml(icon) + '" alt="">' : "";
+      return '<button type="button" class="type-btn" data-type="' + escapeHtml(t) + '">' + iconHtml + "<span>" + escapeHtml(t) + "</span></button>";
+    }).join("");
+
+    $("type-list").querySelectorAll(".type-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        searchTypeFilter = btn.getAttribute("data-type");
+        showSearchResults("");
+      });
+    });
+  }
+
+  function showSearchResults(query) {
+    setSearchOverlayMode("results");
+    $("type-list").hidden = true;
+    $("search-results").hidden = false;
+    $("btn-search-back-types").hidden = false;
+
+    const filtered = DataService.searchPokemon(query, searchTypeFilter);
+    $("search-results").innerHTML = filtered.map((p) => {
+      const sym = DataService.getSymbol(p.dexNo);
+      const typeIcon = DataService.getTypeIconPathByDex(p.dexNo);
+      return (
+        '<div class="search-result-item" data-dex="' + escapeHtml(p.dexNo) + '">' +
+        '<img class="result-poke-img" src="' + escapeHtml(imagePath(p.dexNo)) + '" alt="">' +
+        '<span class="result-name">' + escapeHtml(p.name) + "</span>" +
+        (sym ? '<span class="result-symbol">' + escapeHtml(sym) + "</span>" : "") +
+        (typeIcon ? '<img class="result-type-icon" src="' + escapeHtml(typeIcon) + '" alt="">' : "") +
+        "</div>"
+      );
+    }).join("");
+
+    $("search-results").querySelectorAll(".search-result-item").forEach((item) => {
+      const dex = item.getAttribute("data-dex");
+      bindSearchResultItem(item, () => selectPokemon(dex));
+    });
+  }
+
+  function bindSearchResultItem(item, onSelect) {
+    item.addEventListener("click", (e) => { e.preventDefault(); onSelect(); });
+    item.addEventListener("touchstart", (e) => {
+      searchTouchStartX = e.touches[0].clientX;
+      searchTouchStartY = e.touches[0].clientY;
+    }, { passive: true });
+    item.addEventListener("touchend", (e) => {
+      const dx = e.changedTouches[0].clientX - searchTouchStartX;
+      const dy = e.changedTouches[0].clientY - searchTouchStartY;
+      const th = CONFIG.touchThresholdPx || 15;
+      if (dx * dx + dy * dy < th * th) {
+        e.preventDefault();
+        onSelect();
+      }
+    }, { passive: false });
+  }
+
+  function openSearchOverlay(playerIndex, slotIndex, purpose) {
+    searchContext = { playerIndex, slotIndex, purpose };
+    $("overlay-search").classList.add("active");
+    $("overlay-search").setAttribute("aria-hidden", "false");
+    showTypeList();
+    $("search-pokemon").oninput = () => {
+      if ($("search-pokemon").value.trim()) {
+        searchTypeFilter = null;
+        showSearchResults($("search-pokemon").value);
+      } else if (searchTypeFilter) {
+        showSearchResults("");
+      } else {
+        showTypeList();
+      }
+    };
   }
 
   function closeSearchOverlay() {
     $("overlay-search").classList.remove("active");
     $("overlay-search").setAttribute("aria-hidden", "true");
+    setSearchOverlayMode("types");
     searchContext = null;
+    searchTypeFilter = null;
   }
 
   function selectPokemon(dexNo) {
     if (!searchContext || !state) return;
-    const { playerIndex, slotIndex } = searchContext;
-    const poke = state.players[playerIndex].pokemon[slotIndex];
+    const { playerIndex, slotIndex, purpose } = searchContext;
+    const player = state.players[playerIndex];
+    const poke = player.pokemon[slotIndex];
     poke.dexNo = dexNo;
     saveState();
     closeSearchOverlay();
-    if ($("overlay-switch").classList.contains("active")) {
-      renderSwitchOverlay();
+
+    if (purpose === "edit_change") {
+      openEditOverlay(playerIndex);
     } else {
-      renderGameScreen();
+      renderActiveScreen();
     }
   }
 
-  /* ---------- 交代 ---------- */
-
-  function openSwitchOverlay(playerIndex) {
-    switchPlayerIndex = playerIndex;
-    const overlay = $("overlay-switch");
-    overlay.classList.add("active");
-    overlay.setAttribute("aria-hidden", "false");
-    renderSwitchOverlay();
-  }
-
-  function closeSwitchOverlay() {
-    $("overlay-switch").classList.remove("active");
-    $("overlay-switch").setAttribute("aria-hidden", "true");
-    switchPlayerIndex = null;
-    renderGameScreen();
-  }
-
-  function renderSwitchOverlay() {
-    if (switchPlayerIndex == null || !state) return;
-    const player = state.players[switchPlayerIndex];
-    $("switch-player-name").textContent = player.name;
-
-    const battleIdx = player.activePokemonIndex;
-    const benchIndices = [0, 1, 2].filter((i) => i !== battleIdx);
-
-    let html = '<div class="switch-section">';
-    html += '<span class="switch-label-vertical">バトル場</span>';
-    html += buildSwitchSlotHtml(player, battleIdx, false);
-    html += "</div>";
-
-    html += '<div class="switch-section">';
-    html += '<span class="switch-label-vertical">ベンチ</span>';
-    html += '<div class="switch-bench-row">';
-    benchIndices.forEach((idx) => {
-      html += buildSwitchSlotHtml(player, idx, true);
-    });
-    html += "</div></div>";
-
-    $("switch-body").innerHTML = html;
-
-    $("switch-body").querySelectorAll("[data-action='pick-switch']").forEach((el) => {
-      const slot = parseInt(el.getAttribute("data-slot"), 10);
-      bindTouchTap(el, () => openSearchOverlay(switchPlayerIndex, slot));
-    });
-
-    $("switch-body").querySelectorAll("[data-action='do-switch']").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const benchSlot = parseInt(btn.getAttribute("data-slot"), 10);
-        performSwitch(switchPlayerIndex, benchSlot);
-      });
-    });
-  }
-
-  function buildSwitchSlotHtml(player, slotIndex, showSwitchBtn) {
-    const poke = player.pokemon[slotIndex];
-    const display = getDisplayInfo(poke);
-    const gray = poke.hp <= CONFIG.hpMin ? " grayscale" : "";
-    const isBattle = slotIndex === player.activePokemonIndex;
-
-    let html = '<div class="switch-slot">';
-    html +=
-      '<div class="pokemon-img-wrap" data-action="pick-switch" data-slot="' +
-      slotIndex +
-      '">';
-    html +=
-      '<img class="' +
-      gray.trim() +
-      '" src="' +
-      escapeHtml(imagePath(display.dexNo)) +
-      '" alt="">';
-    html += "</div>";
-    html += '<div class="pokemon-name-label">' + escapeHtml(display.name) + "</div>";
-    if (showSwitchBtn) {
-      const disabled = poke.hp <= CONFIG.hpMin || isBattle ? " disabled" : "";
-      html +=
-        '<button type="button" class="btn-switch-bench"' +
-        disabled +
-        ' data-action="do-switch" data-slot="' +
-        slotIndex +
-        '">交代</button>';
-    }
-    html += "</div>";
-    return html;
-  }
-
-  function performSwitch(playerIndex, benchSlotIndex) {
-    const player = state.players[playerIndex];
-    const battleIdx = player.activePokemonIndex;
-    if (benchSlotIndex === battleIdx) return;
-    const benchPoke = player.pokemon[benchSlotIndex];
-    if (benchPoke.hp <= CONFIG.hpMin) return;
-
-    const temp = player.pokemon[battleIdx];
-    player.pokemon[battleIdx] = player.pokemon[benchSlotIndex];
-    player.pokemon[benchSlotIndex] = temp;
-
-    player.pokemon[battleIdx].status = null;
-    player.pokemon[battleIdx].move = null;
-
-    saveState();
-    closeSwitchOverlay();
-  }
-
-  /* ---------- 状態異常 ---------- */
-
-  function openStatusOverlay(playerIndex) {
-    statusContext = { playerIndex };
-    const overlay = $("overlay-status");
-    overlay.classList.add("active");
-    overlay.setAttribute("aria-hidden", "false");
-    $("status-panel-title").textContent = CONFIG.statusPopupTitle;
-
-    const active = getActivePokemon(state.players[playerIndex]);
-    const container = $("status-buttons");
-    container.innerHTML = "";
-    CONFIG.statusConditions.forEach((label) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "btn-status-choice";
-      if (active.status === label) btn.classList.add("active");
-      btn.textContent = label;
-      btn.addEventListener("click", () => {
-        active.status = label;
-        saveState();
-        closeStatusOverlay();
-        renderGameScreen();
-      });
-      container.appendChild(btn);
-    });
-  }
-
-  function closeStatusOverlay() {
-    $("overlay-status").classList.remove("active");
-    $("overlay-status").setAttribute("aria-hidden", "true");
-    statusContext = null;
-  }
-
-  $("btn-clear-status").addEventListener("click", () => {
-    if (statusContext && state) {
-      getActivePokemon(state.players[statusContext.playerIndex]).status = null;
-      saveState();
-      closeStatusOverlay();
-      renderGameScreen();
-    }
-  });
-
-  /* ---------- わざ効果 ---------- */
+  /* ---------- Move help ---------- */
 
   function openMoveHelpOverlay(moveName) {
     if (!moveName) return;
     const rolls = DataService.getMoveEffect(moveName);
     if (!rolls) return;
     $("move-help-title").textContent = moveName;
-    const list = $("move-help-list");
-    list.innerHTML = rolls
-      .map(
-        (text, i) =>
-          '<div class="move-help-item"><span class="roll-num">' +
-          (i + 1) +
-          "の目</span><span>" +
-          escapeHtml(text) +
-          "</span></div>"
-      )
-      .join("");
-    const overlay = $("overlay-move-help");
-    overlay.classList.add("active");
-    overlay.setAttribute("aria-hidden", "false");
+    $("move-help-list").innerHTML = rolls.map((text, i) =>
+      '<div class="move-help-item"><span class="roll-num">' + (i + 1) + 'の目</span><span>' + escapeHtml(text) + "</span></div>"
+    ).join("");
+    $("overlay-move-help").classList.add("active");
+    $("overlay-move-help").setAttribute("aria-hidden", "false");
   }
 
   function closeMoveHelpOverlay() {
@@ -804,7 +853,7 @@
     $("overlay-move-help").setAttribute("aria-hidden", "true");
   }
 
-  /* ---------- 終了・ダイアログ ---------- */
+  /* ---------- Dialogs & navigation ---------- */
 
   function initDialogs() {
     $("dialog-yes").addEventListener("click", () => {
@@ -815,38 +864,37 @@
     $("dialog-no").addEventListener("click", closeConfirm);
     $("dialog-confirm").querySelector(".dialog-backdrop").addEventListener("click", closeConfirm);
 
-    $("btn-exit").addEventListener("click", () => {
+    function exitGame() {
       showConfirm("ゲームを終了しますか？", () => {
         clearState();
         state = null;
         showScreen("screen-start");
       });
-    });
+    }
+    $("btn-exit").addEventListener("click", exitGame);
+    $("btn-exit-personal").addEventListener("click", exitGame);
 
     $("btn-close-search").addEventListener("click", closeSearchOverlay);
+    $("btn-search-back-types").addEventListener("click", showTypeList);
     $("search-pokemon").addEventListener("keydown", (e) => {
       if (e.key === "Escape") closeSearchOverlay();
     });
 
-    $("btn-switch-back").addEventListener("click", closeSwitchOverlay);
-    $("btn-status-back").addEventListener("click", closeStatusOverlay);
+    $("btn-edit-back").addEventListener("click", closeEditOverlay);
     $("btn-move-help-back").addEventListener("click", closeMoveHelpOverlay);
   }
 
-  /* ---------- 起動 ---------- */
-
   function initNavigation() {
     const backLabel = CONFIG.backButtonLabel || "戻る";
-    const btnBackCount = $("btn-back-count");
-    const btnBackNames = $("btn-back-names");
-    if (btnBackCount) btnBackCount.textContent = backLabel;
-    if (btnBackNames) btnBackNames.textContent = backLabel;
-
-    bindActionButton(btnBackCount, () => {
-      showScreen("screen-start");
+    ["btn-back-bottles", "btn-back-count", "btn-back-names"].forEach((id) => {
+      const el = $(id);
+      if (el) el.textContent = backLabel;
     });
-    bindActionButton(btnBackNames, () => {
-      showScreen("screen-count");
+
+    bindActionButton($("btn-back-bottles"), () => showScreen("screen-start"));
+    bindActionButton($("btn-back-count"), () => showScreen("screen-bottles"));
+    bindActionButton($("btn-back-names"), () => {
+      showScreen(setupMode === "personal" ? "screen-bottles" : "screen-count");
     });
   }
 
@@ -865,20 +913,20 @@
     }
 
     const saved = loadState();
-    if (saved && saved.players && saved.players.length >= 2) {
+    if (saved && saved.players && saved.players.length >= 1) {
       state = saved;
       playerCount = state.playerCount;
-      renderGameScreen();
-      showScreen("screen-game");
+      bottles = state.bottles;
+      setupMode = state.mode || "versus";
+      renderActiveScreen();
     } else {
       showScreen("screen-start");
     }
 
-    /* 初期表示時の戻るボタン非表示を確実にする */
-    const backCount = $("btn-back-count");
-    const backNames = $("btn-back-names");
-    if (backCount) backCount.hidden = true;
-    if (backNames) backNames.hidden = true;
+    ["btn-back-bottles", "btn-back-count", "btn-back-names"].forEach((id) => {
+      const el = $(id);
+      if (el) el.hidden = true;
+    });
   }
 
   if (document.readyState === "loading") {
