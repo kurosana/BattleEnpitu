@@ -4,7 +4,7 @@
 const CONFIG = {
   appTitle: "バトエンツール",
 
-  appVersion: "v3.0.0",
+  appVersion: "v3.0.1",
   appReleaseNotes: "",
 
   startButtonLabel: "スタート",
